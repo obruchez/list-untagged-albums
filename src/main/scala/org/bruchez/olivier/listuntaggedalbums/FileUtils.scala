@@ -1,4 +1,4 @@
-package org.bruchez.olivier.flactomp3
+package org.bruchez.olivier.listuntaggedalbums
 
 import java.nio.file._
 

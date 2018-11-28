@@ -1,24 +1,12 @@
-package org.bruchez.olivier.flactomp3
+package org.bruchez.olivier.listuntaggedalbums
 
 import java.nio.file._
 
 import scala.util._
 
-case class Arguments(srcPath: Path,
-                     dstPath: Path,
-                     trashPath: Path,
-                     inputExtensionsToConvert: Set[String] =
-                       Arguments.DefaultInputExtensionsToConvert,
-                     outputFormat: Format = Aac,
-                     outputBitrateOption: Option[Bitrate] = None,
-                     threadCount: Int = Math.max(1, Runtime.getRuntime.availableProcessors()),
-                     copyCoversToSubDirectories: Boolean = false,
-                     force: Boolean = false,
-                     noop: Boolean = false) {
-  def formatSpecificFfmpegArguments: Seq[String] = outputFormat.ffmpegArguments(outputBitrate)
-
-  def outputBitrate: Bitrate = outputBitrateOption.getOrElse(outputFormat.defaultBitrate)
-}
+case class Arguments(path: Path,
+                     tagsToCheck: Set[String],
+                     filesToCheck: Set[String])
 
 object Arguments {
   val DefaultInputExtensionsToConvert = Set("flac", "flv", "m4a", "mp2", "mp3", "mpc", "ogg", "wav")
@@ -104,7 +92,7 @@ object Arguments {
   // scalastyle:on cyclomatic.complexity method.length
 
   val usage =
-    s"""Usage: FlacToMp3 [options] source_directory destination_directory
+    s"""Usage: ListUntaggedAlbums [options] directory
       |
       |Options:
       |

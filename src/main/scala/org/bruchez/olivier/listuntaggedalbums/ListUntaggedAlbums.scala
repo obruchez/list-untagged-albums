@@ -1,10 +1,10 @@
-package org.bruchez.olivier.flactomp3
+package org.bruchez.olivier.listuntaggedalbums
 
 import java.nio.file._
 
 import scala.util._
 
-object FlacToMp3 {
+object ListUntaggedAlbums {
   def main(args: Array[String]): Unit = {
     //FileUtils.dumpExtensionStatistics(java.nio.file.Paths.get(args(0)))
     //System.exit(0)
@@ -16,133 +16,44 @@ object FlacToMp3 {
         System.err.println(Arguments.usage)
         System.exit(-1)
       case Success(arguments) =>
-        convert()(arguments)
+        //convert()(arguments)
     }
   }
-
-  // scalastyle:off method.length
-  def convert()(implicit arguments: Arguments): Unit = {
-    println("Parsing source files...")
-
-    val srcPaths =
-      FileUtils
-        .allFilesInPath(arguments.srcPath, recursive = true)
-        .filterNot(p => FileUtils.osMetadataFile(p) || Files.isDirectory(p))
-
-    println(s"Source file count: ${srcPaths.size}")
-    println()
-
-    println("Parsing destination files...")
-
-    val dstPaths =
-      FileUtils
-        .allFilesInPath(arguments.dstPath, recursive = true)
-        .filterNot(Files.isDirectory(_))
-        .filterNot(_.startsWith(arguments.trashPath))
-
-    println(s"Destination file count: ${dstPaths.size}")
-    println()
-
-    val actionGroups = this.actionGroups(srcPaths, dstPaths)
-
-    val totalActionCount = actionGroups.map(_.actions.size).sum
-
-    println(s"Actions to perform ($totalActionCount):")
-    for (actionGroup <- actionGroups) {
-      println(s" - ${actionGroup.name} count: ${actionGroup.actions.size}")
-    }
-    println()
-
-    val allActionGroupExecutionErrors = actionGroups.map(_.execute())
-    println()
-
-    val totalErrorCount = allActionGroupExecutionErrors.map(_.executionErrors.size).sum
-
-    if (totalErrorCount > 0) {
-      println(s"Execution errors ($totalErrorCount):")
-      println()
-
-      for (executionError <- allActionGroupExecutionErrors.flatMap(_.executionErrors)) {
-        println(executionError.error)
-        println()
-      }
-    }
-
-    println(s"Execution error counts ($totalErrorCount):")
-    for (actionGroupExecutionErrors <- allActionGroupExecutionErrors) {
-      println(
-        s" - ${actionGroupExecutionErrors.name}: ${actionGroupExecutionErrors.executionErrors.size}")
-    }
-  }
-  // scalastyle:on method.length
-
-  private def actionGroups(srcPaths: Seq[Path], dstPaths: Seq[Path])(
-      implicit arguments: Arguments): Seq[ActionGroup] = {
-    val sourceAndExpectedDestinationPaths = this.sourceAndExpectedDestinationPaths(srcPaths)
-    val expectedDestinationPaths = sourceAndExpectedDestinationPaths.map(_._2).toSet
-
-    def lastModified(path: Path): Long = Files.getLastModifiedTime(path).toMillis
-
-    def mustConvert(path: Path): Boolean =
-      FileUtils.baseNameAndExtension(path)._2.exists(arguments.inputExtensionsToConvert.contains)
-
-    val filesToConvertOrCopy =
-      for {
-        (srcPath, dstPath) <- sourceAndExpectedDestinationPaths
-        if !Files.exists(dstPath) || Files.isSymbolicLink(dstPath) || lastModified(srcPath) > lastModified(
-          dstPath) || arguments.force
-      } yield (srcPath, dstPath)
-
-    val (filesToConvert, filesToCopy) =
-      filesToConvertOrCopy.partition(srcAndDstPaths => mustConvert(srcAndDstPaths._1))
-
-    val removeSymbolicLinkActions =
-      dstPaths.filter(Files.isSymbolicLink).map(RemoveSymbolicLinkAction)
-
-    val removeFileActions =
-      dstPaths.filterNot(expectedDestinationPaths.contains).map(RemoveFileAction)
-
-    val convertFileActions = filesToConvert.map {
-      case (srcPath, dstPath) => ConvertFileAction(srcPath, dstPath)
-    }
-
-    val copyFileActions = filesToCopy.map {
-      case (srcPath, dstPath) => CopyFileAction(srcPath, dstPath)
-    }
-
-    Seq(
-      ActionGroup("Symbolic link removal", removeSymbolicLinkActions, parallelExecution = true),
-      // Do not delete files in parallel, as we're actually moving them to a trash folder and want to avoid name collisions
-      ActionGroup("File removal", removeFileActions, parallelExecution = false),
-      ActionGroup("File conversion", convertFileActions, parallelExecution = true),
-      ActionGroup("File copy", copyFileActions, parallelExecution = true),
-      ActionGroup("Empty directories removal check",
-                  Seq(RemoveEmptyDirectoriesAction(arguments.dstPath)),
-                  parallelExecution = false)
-    )
-  }
-
-  private def sourceAndExpectedDestinationPaths(srcPaths: Seq[Path])(
-      implicit arguments: Arguments): Seq[(Path, Path)] =
-    (for {
-      srcPath <- srcPaths
-      (_, srcExtensionOption) = FileUtils.baseNameAndExtension(srcPath)
-    } yield {
-      lazy val defaultExpectedPath = expectedDestinationPath(srcPath)
-
-      if (srcExtensionOption.exists(arguments.inputExtensionsToConvert.contains)) {
-        // File to convert => change extension
-        Seq(
-          srcPath -> FileUtils.withExtension(defaultExpectedPath, arguments.outputFormat.extension))
-      } else if (CovertArt.covertArt(srcPath)) {
-        // Cover art => copy to expected destination, as well as sub-directories if needed
-        (srcPath +: CovertArt.expectedCovertArtSubLocations(srcPath)).map(path =>
-          srcPath -> expectedDestinationPath(path))
-      } else {
-        Seq(srcPath -> defaultExpectedPath)
-      }
-    }).flatten
-
-  private def expectedDestinationPath(srcPath: Path)(implicit arguments: Arguments): Path =
-    arguments.dstPath.resolve(arguments.srcPath.relativize(srcPath))
 }
+
+/*
+ffmpeg -i 01\ It\'s\ About\ That\ Time\ -\ The\ Mask.mp3 -f ffmetadata - 2>/dev/null
+
+;FFMETADATA1
+album=Sky Garden
+artist=Yo Miles!
+disc=1/2
+title=It's About That Time / The Mask
+track=1/5
+genre=Jazz
+date=2004
+REPLAYGAIN_REFERENCE_LOUDNESS=89.0 dB
+REPLAYGAIN_TRACK_GAIN=-1.40 dB
+REPLAYGAIN_TRACK_PEAK=1.00000000
+REPLAYGAIN_ALBUM_GAIN=-1.30 dB
+REPLAYGAIN_ALBUM_PEAK=1.00000000
+encoder=Lavf57.83.100
+
+ffmpeg -i 01\ Go\ Ahead\ John.flac -f ffmetadata - 2>/dev/null
+;FFMETADATA1
+TITLE=Go Ahead John
+ALBUM=Upriver
+ARTIST=Yo Miles!
+disc=1/2
+track=1/4
+GENRE=Jazz
+DATE=2005
+REPLAYGAIN_REFERENCE_LOUDNESS=89.0 dB
+REPLAYGAIN_TRACK_GAIN=-1.02 dB
+REPLAYGAIN_TRACK_PEAK=1.00000000
+REPLAYGAIN_ALBUM_GAIN=-2.12 dB
+REPLAYGAIN_ALBUM_PEAK=1.00000000
+encoder=Lavf57.83.100
+
++ check presence of cover.jpg, etc.
+ */
