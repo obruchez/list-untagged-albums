@@ -1,40 +1,28 @@
 package org.bruchez.olivier.listuntaggedalbums
 
 import java.nio.file._
-
 import scala.util._
 
 case class Arguments(path: Path,
-                     tagsToCheck: Set[String],
-                     filesToCheck: Set[String])
+                     tagsToCheck: Set[String] = Arguments.DefaultTagsToCheck,
+                     filesToCheck: Set[String] = Arguments.DefaultFilesToCheck)
 
 object Arguments {
-  val DefaultInputExtensionsToConvert = Set("flac", "flv", "m4a", "mp2", "mp3", "mpc", "ogg", "wav")
+  protected val DefaultTagsToCheck = Set("artist", "title")
+  protected val DefaultFilesToCheck = Set[String]()
 
   def apply(args: Array[String]): Try[Arguments] = {
-    if (args.length >= 2) {
-      val srcPath = Paths.get(args(args.length - 2)).toAbsolutePath
-      val dstPath = Paths.get(args(args.length - 1)).toAbsolutePath
-      val trashPath = dstPath.resolve(".FlacToMp3Trash")
+    if (args.length >= 1) {
+      val path = Paths.get(args(args.length - 1)).toAbsolutePath
 
-      val defaultArguments = Arguments(srcPath = srcPath, dstPath = dstPath, trashPath = trashPath)
+      val defaultArguments = Arguments(path = path)
 
-      val argumentsTry =
-        fromArgs(args = args.slice(0, args.length - 2).toList, arguments = defaultArguments)
-
-      argumentsTry flatMap { arguments =>
-        if (arguments.srcPath.toString == arguments.dstPath.toString) {
-          Failure(new IllegalArgumentException("Source and destination paths cannot be the same"))
-        } else {
-          Success(arguments)
-        }
-      }
+      fromArgs(args = args.slice(0, args.length - 2).toList, arguments = defaultArguments)
     } else {
-      Failure(new IllegalArgumentException("Source and destination paths missing"))
+      Failure(new IllegalArgumentException("Path missing"))
     }
   }
 
-  // scalastyle:off cyclomatic.complexity method.length
   @annotation.tailrec
   private def fromArgs(args: List[String], arguments: Arguments): Try[Arguments] =
     args match {
@@ -42,44 +30,12 @@ object Arguments {
         Success(arguments)
       case arg :: remainingArgs =>
         (arg match {
-          case TrashPathArgument if remainingArgs.nonEmpty =>
-            Success((arguments.copy(trashPath = Paths.get(remainingArgs.head)), remainingArgs.tail))
-          case InputExtensionsToConvertArgument if remainingArgs.nonEmpty =>
-            val extensions = remainingArgs.head.split(",").map(_.trim.toLowerCase).toSet
-            Success((arguments.copy(inputExtensionsToConvert = extensions), remainingArgs.tail))
-          case OutputFormatArgument if remainingArgs.nonEmpty =>
-            Format.formatFromString(remainingArgs.head) match {
-              case Success(format) =>
-                Success((arguments.copy(outputFormat = format), remainingArgs.tail))
-              case Failure(_) =>
-                Failure(new IllegalArgumentException(s"Unexpected format: ${remainingArgs.head}"))
-            }
-          case ConstantBitrateArgument if remainingArgs.nonEmpty =>
-            Success(
-              (arguments.copy(outputBitrateOption = Some(Cbr(remainingArgs.head))),
-               remainingArgs.tail))
-          case VariableBitrateArgument if remainingArgs.nonEmpty =>
-            Try(remainingArgs.head.toInt) match {
-              case Success(quality) =>
-                Success(
-                  (arguments.copy(outputBitrateOption = Some(Vbr(quality))), remainingArgs.tail))
-              case Failure(_) =>
-                Failure(new IllegalArgumentException(s"Unexpected quality: ${remainingArgs.head}"))
-            }
-          case ThreadCountArgument if remainingArgs.nonEmpty =>
-            Try(remainingArgs.head.toInt) match {
-              case Success(count) =>
-                Success((arguments.copy(threadCount = count), remainingArgs.tail))
-              case Failure(_) =>
-                Failure(
-                  new IllegalArgumentException(s"Unexpected thread count: ${remainingArgs.head}"))
-            }
-          case CopyCoversToSubDirectoriesArgument =>
-            Success((arguments.copy(copyCoversToSubDirectories = true), remainingArgs))
-          case ForceArgument =>
-            Success((arguments.copy(force = true), remainingArgs))
-          case NoopArgument =>
-            Success((arguments.copy(noop = true), remainingArgs))
+          case TagsArgument if remainingArgs.nonEmpty =>
+            val tags = remainingArgs.head.split(",").map(_.trim.toLowerCase).toSet
+            Success((arguments.copy(tagsToCheck = tags), remainingArgs.tail))
+          case FilesArgument if remainingArgs.nonEmpty =>
+            val files = remainingArgs.head.split(",").map(_.trim.toLowerCase).toSet
+            Success((arguments.copy(filesToCheck = files), remainingArgs.tail))
           case _ =>
             Failure(new IllegalArgumentException(s"Unexpected argument: $arg"))
         }) match {
@@ -89,31 +45,16 @@ object Arguments {
             Failure(throwable)
         }
     }
-  // scalastyle:on cyclomatic.complexity method.length
 
-  val usage =
+  val usage: String =
     s"""Usage: ListUntaggedAlbums [options] directory
       |
       |Options:
       |
-      |-trash trash_directory   directory where removed destination files will be put (default is destination_directory/.FlacToMp3Trash)
-      |-extensions extensions   comma-separated list of extensions to convert using ffmpeg (default is ${DefaultInputExtensionsToConvert.toSeq.sorted
+      |-tags tags   comma-separated list of tags to check (default is ${DefaultTagsToCheck.toSeq.sorted
          .mkString(",")})
-      |-format format           output format (aac or mp3)
-      |-cbr bitrate             CBR bitrate (e.g. 128k or 192000)
-      |-vbr quality             VBR quality (1-5 for AAC and 0-9 for MP3)
-      |-threads count           number of parallel threads to use
-      |-copycovers              copy cover art to sub-directories (useful for e.g. Logitech Media Server)
-      |-force                   force convert/copy even if destination file exists and is up-to-date
-      |-noop                    do not convert, copy, or remove any file in the destination directory""".stripMargin
+      |-files files comma-separated list of files to check (e.g. cover.jpg) (default is no file)""".stripMargin
 
-  private val TrashPathArgument = "-trash"
-  private val InputExtensionsToConvertArgument = "-extensions"
-  private val OutputFormatArgument = "-format"
-  private val ConstantBitrateArgument = "-cbr"
-  private val VariableBitrateArgument = "-vbr"
-  private val ThreadCountArgument = "-threads"
-  private val CopyCoversToSubDirectoriesArgument = "-copycovers"
-  private val ForceArgument = "-force"
-  private val NoopArgument = "-noop"
+  private val TagsArgument = "-tags"
+  private val FilesArgument = "-files"
 }

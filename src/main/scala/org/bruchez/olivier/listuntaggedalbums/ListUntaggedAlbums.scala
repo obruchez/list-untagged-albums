@@ -16,7 +16,7 @@ object ListUntaggedAlbums {
         System.err.println(Arguments.usage)
         System.exit(-1)
       case Success(arguments) =>
-        //convert()(arguments)
+      //convert()(arguments)
     }
   }
 }
