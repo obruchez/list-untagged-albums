@@ -1,5 +1,7 @@
 package org.bruchez.olivier.listuntaggedalbums
 
+import java.nio.file.Path
+
 import scala.util._
 
 object ListUntaggedAlbums {
@@ -16,11 +18,18 @@ object ListUntaggedAlbums {
   }
 
   def check()(implicit arguments: Arguments): Unit = {
-    /*
-    val tags = Ffmpeg.tags(Paths.get("/Users/olivierbruchez/Downloads/test.flac"))
-        println(tags)
-     */
+    val filesToCheckByAlbum = FileUtils.allFilesInPath(arguments.path, recursive = true).filter {
+      path =>
+        arguments.extensionsToCheck.exists(path.toString.toLowerCase.endsWith)
+    } groupBy {
+      albumFolder
+    }
 
-    val
+    // @todo
+  }
+
+  private def albumFolder(path: Path): Path = {
+    // @todo
+    path
   }
 }
