@@ -1,9 +1,7 @@
 package org.bruchez.olivier.listuntaggedalbums
 
 import java.nio.file._
-
 import org.apache.commons.io.FilenameUtils
-
 import scala.collection.JavaConverters._
 
 object FileUtils {
