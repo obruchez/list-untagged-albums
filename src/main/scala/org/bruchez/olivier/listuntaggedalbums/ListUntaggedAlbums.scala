@@ -13,23 +13,61 @@ object ListUntaggedAlbums {
         System.err.println(Arguments.usage)
         System.exit(-1)
       case Success(arguments) =>
-        check()(arguments)
+        ListUntaggedAlbums(arguments).check()
     }
   }
+}
 
-  def check()(implicit arguments: Arguments): Unit = {
-    val filesToCheckByAlbum = FileUtils.allFilesInPath(arguments.path, recursive = true).filter {
-      path =>
+case class ListUntaggedAlbums(arguments: Arguments) {
+  def check(): Unit = {
+    val filesToCheckByParentDirectory = FileUtils
+      .allFilesInPath(arguments.path, recursive = true)
+      .filter { path =>
         arguments.extensionsToCheck.exists(path.toString.toLowerCase.endsWith)
-    } groupBy {
-      albumFolder
+      } groupBy {
+      _.getParent
     }
 
-    // @todo
+    val directoriesWithMissingTags = this.directoriesWithMissingTags(filesToCheckByParentDirectory)
+
+    println(s"Directories with missing tags: ${directoriesWithMissingTags.size}")
+
+    directoriesWithMissingTags.toSeq.sortBy(_.toAbsolutePath.toString) foreach { path =>
+      println(s" - ${path.toString}")
+    }
+
+    val directoriesWithMissingFiles =
+      this.directoriesWithMissingFiles(filesToCheckByParentDirectory.keySet)
+
+    println(s"Directories with missing files: ${directoriesWithMissingFiles.size}")
+
+    directoriesWithMissingFiles.toSeq.sortBy(_.toAbsolutePath.toString) foreach { path =>
+      println(s" - ${path.toString}")
+    }
   }
 
-  private def albumFolder(path: Path): Path = {
-    // @todo
-    path
+  // @todo do not check if no tag in arguments
+  private def directoriesWithMissingTags(
+      filesToCheckByParentDirectory: Map[Path, Seq[Path]]): Set[Path] =
+    filesToCheckByParentDirectory.filter(_._2.exists(hasMissingTags)).keySet
+
+  // @todo do not check if no file in arguments (default)
+  private def directoriesWithMissingFiles(parentDirectories: Set[Path]): Set[Path] =
+    parentDirectories.filter(hasMissingFiles)
+
+  private def hasMissingTags(path: Path): Boolean =
+    Ffmpeg.tags(path) match {
+      case Success(tags) =>
+        val tagSet = tags.map(_._1).toSet
+        !arguments.tagsToCheck.forall(tagSet.contains)
+      case Failure(throwable) =>
+        System.err.println(
+          s"Could not retrieve tags for '${path.toString}' (${throwable.getMessage})")
+        false
+    }
+
+  private def hasMissingFiles(path: Path): Boolean = {
+    // @todo check 0 or more levels depending on maxAncestorLevelsToCheckForFiles
+    false
   }
 }
