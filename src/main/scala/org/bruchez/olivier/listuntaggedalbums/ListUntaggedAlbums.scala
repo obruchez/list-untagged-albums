@@ -48,7 +48,8 @@ case class ListUntaggedAlbums(arguments: Arguments) {
 
   // @todo do not check if no tag in arguments
   private def directoriesWithMissingTags(
-      filesToCheckByParentDirectory: Map[Path, Seq[Path]]): Set[Path] =
+      filesToCheckByParentDirectory: Map[Path, Seq[Path]]
+  ): Set[Path] =
     filesToCheckByParentDirectory.filter(_._2.exists(hasMissingTags)).keySet
 
   // @todo do not check if no file in arguments (default)
@@ -62,7 +63,8 @@ case class ListUntaggedAlbums(arguments: Arguments) {
         !arguments.tagsToCheck.forall(tagSet.contains)
       case Failure(throwable) =>
         System.err.println(
-          s"Could not retrieve tags for '${path.toString}' (${throwable.getMessage})")
+          s"Could not retrieve tags for '${path.toString}' (${throwable.getMessage})"
+        )
         false
     }
 

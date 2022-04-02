@@ -1,11 +1,11 @@
 name := "list-untagged-albums"
 version := "0.1"
-scalaVersion := "2.12.7"
+scalaVersion := "2.13.8"
 
-libraryDependencies += "commons-io" % "commons-io" % "2.6"
+libraryDependencies += "commons-io" % "commons-io" % "2.11.0"
 
-mainClass in assembly := Some("org.bruchez.olivier.listuntaggedalbums.ListUntaggedAlbums")
+assembly / mainClass := Some("org.bruchez.olivier.listuntaggedalbums.ListUntaggedAlbums")
 
-assemblyJarName in assembly := "list-untagged-albums.jar"
+assembly / assemblyJarName := "list-untagged-albums.jar"
 
-scalafmtOnCompile in ThisBuild := true
+ThisBuild / scalafmtOnCompile := true
